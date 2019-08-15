@@ -1,0 +1,307 @@
+// The purpose of this script is to set the status of associated 
+
+// conditions within an alert policy for defined hours as required. 
+
+ 
+
+ 
+
+// Variables
+
+// This is the policy for conditioned to be toggled on and off
+var alertPolicyId = "<ALERT POLICY ID HERE>"; 
+var apiKey = "<ACCOUNT API KEY HERE>"; // This is the account API Key
+var adminApiKey = "<ADMIN API KEY HERE>"; // This is the admin api key
+
+var conditionsArray = new Array; // Just an array to store a set of conditions to enable / disable
+
+
+function getAlertConditions(policyId, state) {
+
+// We need to go off and get all of the alert conditions for the given policyId
+ // This includes standard conditions, NRQL conditions, synthetics conditions, infrastructure conditions
+
+// get the standard alert conditions
+
+console.log("We are going to " + state + " any condition we find");
+
+var requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_conditions.json?policy_id=' + policyId,
+ headers: {
+ 'ContentType': 'application/json',
+ 'X-Api-Key': apiKey
+ }
+ };
+
+$http.get(requestOptions, function(error, response, body) {
+ if (!error && response.statusCode == 200) {
+
+var conditionData = JSON.parse(body);
+
+//Loop through the result set
+ var i = 0;
+ for (i = 0; i < conditionData.conditions.length; i++) {
+ //console.log("Alert Condition: " + conditionData.conditions[i].id );
+ conditionsArray.push({
+ "conditionType": "Standard",
+ "conditionId": conditionData.conditions[i].id,
+ "conditionDetail": conditionData.conditions[i]
+ });
+ processConditions(state);
+ }
+
+}
+ });
+
+
+ // get the NRQL conditions
+ requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_nrql_conditions.json?policy_id=' + policyId,
+ headers: {
+ 'ContentType': 'application/json',
+ 'X-Api-Key': apiKey
+ }
+ };
+
+$http.get(requestOptions, function(error, response, body) {
+ if (!error && response.statusCode == 200) {
+
+var conditionData = JSON.parse(body);
+
+//Loop through the result set
+ var i = 0;
+ for (i = 0; i < conditionData.nrql_conditions.length; i++) {
+ //console.log("Alert Condition: " + conditionData.nrql_conditions[i].id );
+ conditionsArray.push({
+ "conditionType": "NRQL",
+ "conditionId": conditionData.nrql_conditions[i].id,
+ "conditionDetail": conditionData.nrql_conditions[i]
+ });
+ processConditions(state);
+ }
+
+}
+ });
+
+// get the infrastructure conditions
+ requestOptions = {
+ uri: 'https://infra-api.newrelic.com/v2/alerts/conditions?policy_id=' + policyId,
+ headers: {
+ 'ContentType': 'application/json',
+ 'X-Api-Key': adminApiKey
+ }
+ };
+
+$http.get(requestOptions, function(error, response, body) {
+ if (!error && response.statusCode == 200) {
+
+var conditionData = JSON.parse(body);
+
+//Loop through the result set
+ var i = 0;
+ for (i = 0; i < conditionData.data.length; i++) {
+ //console.log("Alert Condition: " + conditionData.data[i].id );
+ conditionsArray.push({
+ "conditionType": "Infrastructure",
+ "conditionId": conditionData.data[i].id,
+ "conditionDetail": conditionData.data[i]
+ });
+ processConditions(state);
+ }
+
+}
+ });
+
+
+ // get the synthetics conditions
+ requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_synthetics_conditions.json?policy_id=' + policyId,
+ headers: {
+ 'ContentType': 'application/json',
+ 'X-Api-Key': apiKey
+ }
+ };
+
+$http.get(requestOptions, function(error, response, body) {
+ if (!error && response.statusCode == 200) {
+
+var conditionData = JSON.parse(body);
+
+//Loop through the result set
+ var i = 0;
+ for (i = 0; i < conditionData.synthetics_conditions.length; i++) {
+ //console.log("Alert Condition: " + conditionData.synthetics_conditions[i].id );
+ conditionsArray.push({
+ "conditionType": "Synthetics",
+ "conditionId": conditionData.synthetics_conditions[i].id,
+ "conditionDetail": conditionData.synthetics_conditions[i]
+ });
+ processConditions(state);
+ }
+
+}
+ });
+
+
+}
+
+function processConditions(state) {
+
+var details = conditionsArray.pop();
+
+switch (details.conditionType) {
+ case "Standard":
+ console.log("We are going to " + state + " policy Standard condition id: " + details.conditionId);
+
+if (state == "enable") {
+ details.conditionDetail.enabled = true;
+ } else {
+ details.conditionDetail.enabled = false;
+ }
+
+var requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_conditions/' + details.conditionId + '.json',
+ headers: {
+ 'Content-Type': 'application/json',
+ 'X-Api-Key': adminApiKey
+ },
+ body: JSON.stringify({
+ condition: details.conditionDetail
+ })
+ };
+
+$http.put(requestOptions, function(error, response, body) {
+
+if (!error && response.statusCode == 200) {
+
+var responseObj = JSON.parse(body);
+
+console.log("We updated the state of Standard condition: " + responseObj.condition.id);
+ }
+ });
+
+break;
+ case "NRQL":
+ console.log("We are going to " + state + " policy NRQL condition id: " + details.conditionId);
+
+if (state == "enable") {
+ details.conditionDetail.enabled = true;
+ } else {
+ details.conditionDetail.enabled = false;
+ }
+
+var requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_nrql_conditions/' + details.conditionId + '.json',
+ headers: {
+ 'Content-Type': 'application/json',
+ 'X-Api-Key': adminApiKey
+ },
+ body: JSON.stringify({
+ nrql_condition: details.conditionDetail
+ })
+ };
+
+$http.put(requestOptions, function(error, response, body) {
+
+if (!error && response.statusCode == 200) {
+
+var responseObj = JSON.parse(body);
+
+console.log("We updated the state of NRQL condition: " + responseObj.nrql_condition.id);
+ }
+ });
+
+break;
+ case "Infrastructure":
+ console.log("We are going to " + state + " policy Infrastructure condition id: " + details.conditionId);
+
+if (state == "enable") {
+ details.enabled = true;
+ } else {
+ details.enabled = false;
+ }
+
+var requestOptions = {
+ uri: 'https://infra-api.newrelic.com/v2/alerts/conditions/' + details.conditionId + '',
+ headers: {
+ 'Content-Type': 'application/json',
+ 'X-Api-Key': adminApiKey
+ },
+ body: JSON.stringify({
+ data: details.conditionDetail
+ })
+ };
+
+$http.put(requestOptions, function(error, response, body) {
+ if (!error && response.statusCode == 200) {
+
+var responseObj = JSON.parse(body);
+
+console.log("We updated the state of infrastructure condition: " + responseObj.data.id);
+ }
+ });
+
+break;
+ case "Synthetics":
+ console.log("We are going to " + state + " policy Synthetics condition id: " + details.conditionId);
+
+if (state == "enable") {
+ details.conditionDetail.enabled = true;
+ } else {
+ details.conditionDetail.enabled = false;
+ }
+
+var requestOptions = {
+ uri: 'https://api.newrelic.com/v2/alerts_synthetics_conditions/' + details.conditionId + '.json',
+ headers: {
+ 'Content-Type': 'application/json',
+ 'X-Api-Key': adminApiKey
+ },
+ body: JSON.stringify({
+ synthetics_condition: details.conditionDetail
+ })
+ };
+
+$http.put(requestOptions, function(error, response, body) {
+
+if (!error && response.statusCode == 200) {
+
+var responseObj = JSON.parse(body);
+
+console.log("We updated the state of Synthetics condition: " + responseObj.synthetics_condition.id);
+ }
+ });
+
+break;
+ default:
+ console.log("We have an unknown alert type");
+ break;
+ }
+
+}
+
+function checkMaintenanceWindow() {
+ // We want to disable our alerts between the hours of 1am and 6am (Our hours to calculate against are 0 - 23)
+ // Note if we want to change the logic for example 11pm to 6am we would need to deal with the positive number
+ // and improve the logic around our check
+ var d = new Date();
+
+var offsetHours = 7 //Portland returns a 6 hour offset for some reason
+ d.setHours(d.getHours() - offsetHours);
+
+var currentHour = d.getHours();
+ console.log("The hour now is: " + currentHour);
+ var stopHour = 0; //12am
+ var startHour = 2; //2am
+
+if (currentHour >= stopHour && currentHour < (startHour + 1)) {
+ console.log("We will not trigger alerts");
+ getAlertConditions(alertPolicyId, "disable");
+
+} else {
+ console.log("We will trigger alerts");
+ getAlertConditions(alertPolicyId, "enable");
+ }
+}
+
+checkMaintenanceWindow();
